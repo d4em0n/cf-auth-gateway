@@ -75,3 +75,9 @@ tests. End-to-end WebSocket messages are not simulated by the Node HTTP fixture
 because Node's native HTTP server and the Workers WebSocket runtime have
 different upgrade APIs. Real application/Cloudflare integration tests remain
 necessary before production deployment.
+
+## Workers runtime and real LibreChat
+
+`npm run test:runtime` uses actual workerd/Miniflare with KV and rate-limit bindings. It exercises separate cookies, redirects, gzip, streamed upload bodies, cancellable SSE, live WebSocket messages/clean close, validator timeouts, selective rate limiting and coalescing across incoming request contexts. These are local runtime tests, not claims about regional consistency or deployed edge quotas.
+
+The [real LibreChat suite](../docs/librechat/testing.md) uses an isolated instance of the installed app image, real Chromium, a real model provider and actual HTTPS gateway traffic. It includes uploads/downloads, response comparisons, expiry, rotation, replay, logout and concurrent requests. `origin-proof.js` checks staging access logs for requests blocked before origin and recognized credentials bypassing redundant validation. The optional manual workflow requires isolated staging secrets and publishes no browser/log artifacts.

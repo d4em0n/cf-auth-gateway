@@ -6,61 +6,34 @@
   "routes": [
     {
       "access": "public",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "exact": [
-        "/",
-        "/login"
-      ]
+      "methods": ["GET", "HEAD"],
+      "exact": ["/", "/login"]
     },
     {
       "access": "public",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "prefix": [
-        "/assets/"
-      ]
+      "methods": ["GET", "HEAD"],
+      "prefix": ["/assets/"]
     },
     {
       "access": "public",
-      "methods": [
-        "GET"
-      ],
-      "exact": [
-        "/api/version"
-      ]
+      "methods": ["GET"],
+      "exact": ["/api/version"]
     },
     {
       "access": "auth_flow",
-      "methods": [
-        "POST"
-      ],
-      "exact": [
-        "/api/auth/login"
-      ],
+      "methods": ["POST"],
+      "exact": ["/api/auth/login"],
       "rateLimit": true
     },
     {
       "access": "auth_flow",
-      "methods": [
-        "POST"
-      ],
-      "exact": [
-        "/api/auth/refresh"
-      ]
+      "methods": ["POST"],
+      "exact": ["/api/auth/refresh"]
     },
     {
       "access": "auth_flow",
-      "methods": [
-        "POST"
-      ],
-      "exact": [
-        "/api/auth/logout"
-      ]
+      "methods": ["POST"],
+      "exact": ["/api/auth/logout"]
     }
   ],
   "credentials": [

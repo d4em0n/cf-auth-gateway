@@ -36,6 +36,26 @@ export function upstreamHeaders(request, environment) {
   const headers = new Headers(request.headers);
 
   // Never trust a caller-supplied identity or gateway verification header.
+  for (const name of [
+    'Host',
+    'Forwarded',
+    'X-Forwarded-For',
+    'X-Forwarded-Host',
+    'X-Forwarded-Proto',
+    'X-Forwarded-Port',
+    'X-Real-IP',
+    'X-Original-URL',
+    'X-Rewrite-URL',
+  ]) {
+    headers.delete(name);
+  }
+  const publicUrl = new URL(request.url);
+  headers.set('X-Forwarded-Host', publicUrl.host);
+  headers.set('X-Forwarded-Proto', 'https');
+  const clientIp = request.headers.get('CF-Connecting-IP');
+  if (clientIp) {
+    headers.set('X-Forwarded-For', clientIp);
+  }
   headers.delete('X-CF-Auth-Gateway-Secret');
   headers.delete('X-CF-Auth-Gateway-User');
   headers.set('X-CF-Auth-Gateway-Secret', environment.ORIGIN_GATEWAY_SECRET);
@@ -52,6 +72,7 @@ export async function proxyRequest(request, environment, origin, fetchUpstream) 
     method: request.method,
     headers: upstreamHeaders(request, environment),
     redirect: 'manual',
+    signal: request.signal,
   };
 
   if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -60,8 +81,20 @@ export async function proxyRequest(request, environment, origin, fetchUpstream) 
     init.duplex = 'half';
   }
 
-  const upstreamRequest = new Request(target, init);
-  const response = await fetchUpstream(upstreamRequest);
+  const upstreamRequest = new Request(target, {
+    ...init,
+    cache: 'no-store',
+  });
+  let response;
+  try {
+    // Disable Cloudflare's shared cache even if the origin mislabels private data.
+    response = await fetchUpstream(upstreamRequest);
+  } catch {
+    return new Response('Origin unavailable', {
+      status: 502,
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
 
   if (response.status === 101) {
     // A WebSocket upgrade response cannot be rebuilt as a normal Response.
@@ -76,7 +109,19 @@ export async function proxyRequest(request, environment, origin, fetchUpstream) 
   }
 
   const headers = new Headers(response.headers);
-  headers.set('Cache-Control', 'private, no-store');
+  headers.set('Cache-Control', 'private, no-store, no-transform');
+  headers.delete('CDN-Cache-Control');
+  headers.delete('Cloudflare-CDN-Cache-Control');
+  const location = headers.get('Location');
+  if (location) {
+    const redirect = new URL(location, target);
+    if (redirect.origin === origin.origin) {
+      const publicUrl = new URL(request.url);
+      redirect.protocol = publicUrl.protocol;
+      redirect.host = publicUrl.host;
+      headers.set('Location', redirect.toString());
+    }
+  }
 
   return new Response(response.body, {
     status: response.status,

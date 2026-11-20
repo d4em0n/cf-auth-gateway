@@ -15,8 +15,7 @@ async function setup(t, profile = testProfile) {
 }
 
 function cookieValue(response, name) {
-  const entry = response.headers.getSetCookie()
-    .find((value) => value.startsWith(name + '='));
+  const entry = response.headers.getSetCookie().find((value) => value.startsWith(name + '='));
 
   assert.ok(entry, 'Expected Set-Cookie for ' + name);
   return entry.split(';', 1)[0];
@@ -60,7 +59,10 @@ test('test profile is valid and independent of the example application', () => {
   assert.equal(validateProfile(testProfile), testProfile);
   assert.equal(testProfile.id, 'fixture-app');
   assert.equal(testProfile.hostname, 'app.fixture.test');
-  assert.equal(testProfile.routes.some((rule) => rule.prefix?.includes('/assets/')), true);
+  assert.equal(
+    testProfile.routes.some((rule) => rule.prefix?.includes('/assets/')),
+    true,
+  );
 });
 
 test('real browser login HTML, JS, CSS, SVG and version are publicly accessible', async (t) => {
@@ -301,7 +303,10 @@ test('logout revokes both recognized cookie and bearer at the origin', async (t)
   });
   assert.equal(logout.status, 204);
   assert.equal(logout.headers.getSetCookie().length, 2);
-  assert.equal(logout.headers.getSetCookie().every((line) => line.includes('Max-Age=0')), true);
+  assert.equal(
+    logout.headers.getSetCookie().every((line) => line.includes('Max-Age=0')),
+    true,
+  );
 
   const bearerAfterLogout = await privateRequest(harness, login.token);
   const cookieAfterLogout = await harness.request('/api/private', {
@@ -356,7 +361,10 @@ test('validator redirects are not followed to a public login page', async (t) =>
 
   assert.equal(harness.fixture.state.validationRequests, 1);
   assert.equal(harness.fixture.state.protectedRequests, 0);
-  assert.equal(harness.fixture.state.observedRequests.some((request) => request.path === '/login'), false);
+  assert.equal(
+    harness.fixture.state.observedRequests.some((request) => request.path === '/login'),
+    false,
+  );
 });
 
 test('unavailable validation endpoint fails closed without remembering credential', async (t) => {

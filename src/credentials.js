@@ -3,7 +3,7 @@
  * Raw tokens and session cookies are never stored in KV.
  */
 const MAX_CREDENTIAL_LENGTH = 8192;
-const BEARER_PATTERN = /^Bearer ([A-Za-z0-9._~+\/-]+=*)$/i;
+const BEARER_PATTERN = /^Bearer ([A-Za-z0-9._~+/-]+=*)$/i;
 
 function extractBearer(request, scheme) {
   const authorization = request.headers.get('Authorization');
@@ -43,7 +43,11 @@ function extractCookie(request, scheme) {
 
   const value = matches[0].slice(scheme.name.length + 1);
 
-  if (!value || value.length > MAX_CREDENTIAL_LENGTH || /[\r\n]/.test(value)) {
+  if (
+    !value ||
+    value.length > MAX_CREDENTIAL_LENGTH ||
+    /[^\x21\x23-\x2b\x2d-\x3a\x3c-\x5b\x5d-\x7e]/.test(value)
+  ) {
     return { error: 'Malformed authentication cookie' };
   }
 
@@ -63,9 +67,8 @@ export function extractCredential(request, profile) {
   }
 
   for (const scheme of profile.credentials) {
-    const credential = scheme.type === 'bearer'
-      ? extractBearer(request, scheme)
-      : extractCookie(request, scheme);
+    const credential =
+      scheme.type === 'bearer' ? extractBearer(request, scheme) : extractCookie(request, scheme);
 
     if (credential !== null) {
       return credential;
@@ -90,18 +93,9 @@ export async function fingerprintCredential(credential, profile, secret) {
     ['sign'],
   );
 
-  const message = [
-    profile.id,
-    profile.epoch,
-    credential.scheme.id,
-    credential.value,
-  ].join('\0');
+  const message = [profile.id, profile.epoch, credential.scheme.id, credential.value].join('\0');
 
-  const signature = await crypto.subtle.sign(
-    'HMAC',
-    signingKey,
-    encoder.encode(message),
-  );
+  const signature = await crypto.subtle.sign('HMAC', signingKey, encoder.encode(message));
 
   const hexDigest = Array.from(new Uint8Array(signature))
     .map((byte) => byte.toString(16).padStart(2, '0'))

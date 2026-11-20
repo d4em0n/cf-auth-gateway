@@ -1,0 +1,43 @@
+{
+  "name": "cf-auth-gateway-production",
+  "main": ".generated/worker.js",
+  "compatibility_date": "2026-07-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "build": {
+    "command": "node scripts/prepare-worker.js profiles/librechat-v0.8.9.json",
+  },
+  "vars": {
+    "ORIGIN_URL": "https://origin-production.example.com",
+  },
+  "kv_namespaces": [
+    {
+      "binding": "RECOGNIZED",
+      "id": "00000000000000000000000000000000",
+    },
+  ],
+  "ratelimits": [
+    {
+      "name": "AUTH_FLOW_LIMITER",
+      "namespace_id": "3001",
+      "simple": {
+        "limit": 10,
+        "period": 60,
+      },
+    },
+    {
+      "name": "UNKNOWN_LIMITER",
+      "namespace_id": "3002",
+      "simple": {
+        "limit": 30,
+        "period": 60,
+      },
+    },
+  ],
+  "routes": [
+    {
+      "pattern": "chat-production.example.com",
+      "custom_domain": true,
+    },
+  ],
+}

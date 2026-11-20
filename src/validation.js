@@ -2,8 +2,12 @@
 
 const MAX_VALIDATION_BODY_BYTES = 16_384;
 
-function createValidationHeaders(credential, environment) {
-  const headers = new Headers({ Accept: 'application/json' });
+function createValidationHeaders(credential, profile, environment) {
+  const headers = new Headers({
+    Accept: 'application/json',
+    'X-Forwarded-Host': profile.hostname,
+    'X-Forwarded-Proto': 'https',
+  });
 
   if (credential.scheme.type === 'bearer') {
     headers.set('Authorization', `Bearer ${credential.value}`);
@@ -26,9 +30,7 @@ function readIdentity(payload, dottedPath) {
     current = current[segment];
   }
 
-  return typeof current === 'string' && current.trim().length > 0
-    ? current
-    : null;
+  return typeof current === 'string' && current.trim().length > 0 ? current : null;
 }
 
 async function readBoundedJson(response) {
@@ -83,23 +85,19 @@ async function readBoundedJson(response) {
  * - Validation responses must contain the configured nonempty identity field.
  * - Callers never supply the URL or redirect target.
  */
-export async function validateCredential(
-  credential,
-  profile,
-  environment,
-  origin,
-  fetchUpstream,
-) {
+export async function validateCredential(credential, profile, environment, origin, fetchUpstream) {
   const contract = credential.scheme.validation;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), profile.validationTimeoutMs);
 
+  let response;
   try {
-    const response = await fetchUpstream(new URL(contract.path, origin).toString(), {
+    response = await fetchUpstream(new URL(contract.path, origin).toString(), {
       method: contract.method,
-      headers: createValidationHeaders(credential, environment),
+      headers: createValidationHeaders(credential, profile, environment),
       redirect: 'manual',
       signal: controller.signal,
+      cache: 'no-store',
     });
 
     if (
@@ -125,5 +123,8 @@ export async function validateCredential(
     return 'unavailable';
   } finally {
     clearTimeout(timeout);
+    if (response?.body && !response.body.locked) {
+      await response.body.cancel().catch(() => {});
+    }
   }
 }

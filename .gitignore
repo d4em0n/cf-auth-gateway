@@ -3,3 +3,9 @@ dist/
 .wrangler/
 .dev.vars
 .env
+.generated/
+.deployment/
+test-results/
+playwright-report/
+
+*.local.jsonc

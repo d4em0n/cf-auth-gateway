@@ -5,17 +5,21 @@
  * a public route or disable authentication checks.
  */
 const PROFILE_FIELDS = [
-  'schemaVersion', 'id', 'hostname', 'epoch', 'routes',
-  'credentials', 'retentionDays', 'validationTimeoutMs',
+  'schemaVersion',
+  'id',
+  'hostname',
+  'epoch',
+  'routes',
+  'credentials',
+  'retentionDays',
+  'validationTimeoutMs',
 ];
 
 const ROUTE_FIELDS = ['access', 'methods', 'exact', 'prefix', 'rateLimit'];
 const CREDENTIAL_FIELDS = ['id', 'type', 'name', 'validation'];
 const VALIDATION_FIELDS = ['method', 'path', 'jsonPath'];
 
-const HTTP_METHODS = new Set([
-  'GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS',
-]);
+const HTTP_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']);
 
 function assertObject(value, label, allowedFields) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -111,10 +115,7 @@ function validateCredential(credential, index) {
   }
 
   if (credential.type === 'cookie') {
-    if (
-      typeof credential.name !== 'string' ||
-      !/^[a-zA-Z0-9_-]+$/.test(credential.name)
-    ) {
+    if (typeof credential.name !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(credential.name)) {
       throw new Error(`${label} has an invalid cookie name`);
     }
   } else if (credential.name !== undefined) {
@@ -149,7 +150,9 @@ export function validateProfile(profile) {
 
   if (
     typeof profile.hostname !== 'string' ||
-    !/^(?=.{1,253}$)[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(profile.hostname)
+    !/^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(
+      profile.hostname,
+    )
   ) {
     throw new Error('profile.hostname must be a lowercase DNS hostname');
   }

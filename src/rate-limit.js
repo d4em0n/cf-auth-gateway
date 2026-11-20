@@ -15,6 +15,10 @@ export async function checkRateLimit(request, environment, profile, bindingName)
       key: `${profile.id}:${clientIp}`,
     });
 
+    if (typeof decision?.success !== 'boolean') {
+      return 'unavailable';
+    }
+
     return decision.success ? 'allowed' : 'limited';
   } catch {
     return 'unavailable';

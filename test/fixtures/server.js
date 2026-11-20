@@ -177,16 +177,21 @@ export async function startFixtureServer({ gatewaySecret }) {
         const refreshToken = issueToken(state.refreshTokens, state, SESSION_LIFETIME_MS);
         const session = issueToken(state.sessions, state, SESSION_LIFETIME_MS);
 
-        sendJson(response, 200, {
-          user: { id: 'alice' },
-          accessToken,
-          expiresInSeconds: ACCESS_LIFETIME_MS / 1000,
-        }, {
-          'Set-Cookie': [
-            sessionCookie('session', session),
-            sessionCookie('refresh', refreshToken, '/auth/refresh'),
-          ],
-        });
+        sendJson(
+          response,
+          200,
+          {
+            user: { id: 'alice' },
+            accessToken,
+            expiresInSeconds: ACCESS_LIFETIME_MS / 1000,
+          },
+          {
+            'Set-Cookie': [
+              sessionCookie('session', session),
+              sessionCookie('refresh', refreshToken, '/auth/refresh'),
+            ],
+          },
+        );
         return;
       }
 
@@ -205,9 +210,14 @@ export async function startFixtureServer({ gatewaySecret }) {
         const refreshToken = issueToken(state.refreshTokens, state, SESSION_LIFETIME_MS);
         const accessToken = issueToken(state.accessTokens, state, ACCESS_LIFETIME_MS);
 
-        sendJson(response, 200, { user: { id: userId }, accessToken }, {
-          'Set-Cookie': sessionCookie('refresh', refreshToken, '/auth/refresh'),
-        });
+        sendJson(
+          response,
+          200,
+          { user: { id: userId }, accessToken },
+          {
+            'Set-Cookie': sessionCookie('refresh', refreshToken, '/auth/refresh'),
+          },
+        );
         return;
       }
 
@@ -247,9 +257,10 @@ export async function startFixtureServer({ gatewaySecret }) {
         }
 
         const cookies = parseCookies(request.headers.cookie);
-        const userId = path === '/auth/whoami'
-          ? identityFor(state.accessTokens, bearerToken(request), state)
-          : identityFor(state.sessions, cookies.get('session'), state);
+        const userId =
+          path === '/auth/whoami'
+            ? identityFor(state.accessTokens, bearerToken(request), state)
+            : identityFor(state.sessions, cookies.get('session'), state);
 
         if (!userId) {
           sendJson(response, 401, { error: 'Invalid token or session' });
@@ -326,7 +337,7 @@ export async function startFixtureServer({ gatewaySecret }) {
     async close() {
       server.closeAllConnections();
       await new Promise((resolve, reject) => {
-        server.close((error) => error ? reject(error) : resolve());
+        server.close((error) => (error ? reject(error) : resolve()));
       });
     },
   };

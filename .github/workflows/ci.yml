@@ -2,9 +2,7 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - feat/gateway-v1
+    branches: [main, feat/gateway-v1]
   pull_request:
 
 permissions:
@@ -19,11 +17,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Validate profiles
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Validate declarative profiles
         run: npm run check
-      - name: Test gateway
+      - name: Unit, negative security and HTTP integration tests
         run: npm test
-      - name: Build Worker without deploying
+      - name: Workers runtime integration tests
+        run: npm run test:runtime
+      - name: Wrangler dry-run build
         run: npm run build

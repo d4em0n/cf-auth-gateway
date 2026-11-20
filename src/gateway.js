@@ -2,8 +2,8 @@ import { extractCredential, fingerprintCredential } from './credentials.js';
 import { proxyRequest, resolveOrigin } from './origin.js';
 import { matchRoute, validateProfile } from './profile.js';
 import { checkRateLimit } from './rate-limit.js';
-import { rememberCredential, wasRecognized } from './recognition.js';
-import { validateCredential } from './validation.js';
+import { wasRecognized } from './recognition.js';
+import { createFirstUseValidator } from './first-use.js';
 
 function deny(status, message) {
   return new Response(message, {
@@ -40,7 +40,8 @@ function isWebSocketRequest(request) {
  * 4. Leave all real authentication and resource authorization to the origin.
  */
 export function createGateway(profileDefinition, { fetchUpstream = fetch } = {}) {
-  const profile = validateProfile(profileDefinition);
+  const profile = validateProfile(structuredClone(profileDefinition));
+  const validateFirstUse = createFirstUseValidator(profile, fetchUpstream);
 
   return async function handleRequest(request, environment) {
     try {
@@ -49,6 +50,15 @@ export function createGateway(profileDefinition, { fetchUpstream = fetch } = {})
 
       if (hostname !== profile.hostname) {
         return deny(421, 'Unknown hostname');
+      }
+
+      if (
+        ['X-HTTP-Method-Override', 'X-Method-Override', 'X-HTTP-Method'].some((name) =>
+          request.headers.has(name),
+        ) ||
+        new URL(request.url).searchParams.has('_method')
+      ) {
+        return deny(400, 'Method overrides are unsupported');
       }
 
       const upgrade = request.headers.get('Upgrade');
@@ -68,12 +78,7 @@ export function createGateway(profileDefinition, { fetchUpstream = fetch } = {})
       // Public HTML/assets must not accidentally grant public WebSocket access.
       if (isPublicRoute && !isWebSocket) {
         if (route.rateLimit === true) {
-          const decision = await checkRateLimit(
-            request,
-            environment,
-            profile,
-            'AUTH_FLOW_LIMITER',
-          );
+          const decision = await checkRateLimit(request, environment, profile, 'AUTH_FLOW_LIMITER');
 
           const failure = rateLimitFailure(decision);
           if (failure) {
@@ -90,34 +95,22 @@ export function createGateway(profileDefinition, { fetchUpstream = fetch } = {})
         return deny(401, 'Authentication required');
       }
 
-      const fingerprint = await fingerprintCredential(
-        credential,
-        profile,
-        environment.HMAC_SECRET,
-      );
+      const fingerprint = await fingerprintCredential(credential, profile, environment.HMAC_SECRET);
 
       const recognized = await wasRecognized(environment.RECOGNIZED, fingerprint);
 
       if (!recognized) {
-        const decision = await checkRateLimit(
+        const validation = await validateFirstUse(
+          credential,
+          fingerprint,
           request,
           environment,
-          profile,
-          'UNKNOWN_LIMITER',
-        );
-
-        const failure = rateLimitFailure(decision);
-        if (failure) {
-          return failure;
-        }
-
-        const validation = await validateCredential(
-          credential,
-          profile,
-          environment,
           origin,
-          fetchUpstream,
         );
+
+        if (validation === 'limited' || validation === 'limiter_unavailable') {
+          return rateLimitFailure(validation);
+        }
 
         if (validation === 'invalid') {
           return deny(401, 'Invalid credential');
@@ -126,8 +119,6 @@ export function createGateway(profileDefinition, { fetchUpstream = fetch } = {})
         if (validation !== 'valid') {
           return deny(503, 'Credential validator unavailable');
         }
-
-        await rememberCredential(environment.RECOGNIZED, fingerprint, profile.retentionDays);
       }
 
       return proxyRequest(request, environment, origin, fetchUpstream);

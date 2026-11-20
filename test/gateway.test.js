@@ -105,7 +105,10 @@ test('public routes match only explicitly permitted method and path', () => {
   assert.equal(matchRoute(exampleProfile, makeRequest('/login')).access, 'public');
   assert.equal(matchRoute(exampleProfile, makeRequest('/assets/app.js?v=1')).access, 'public');
   assert.equal(matchRoute(exampleProfile, makeRequest('/private.js')).access, 'protected');
-  assert.equal(matchRoute(exampleProfile, makeRequest('/assets/private%2Ffile')).access, 'protected');
+  assert.equal(
+    matchRoute(exampleProfile, makeRequest('/assets/private%2Ffile')).access,
+    'protected',
+  );
   assert.equal(matchRoute(exampleProfile, makeRequest('/api/auth/login')).access, 'protected');
   assert.equal(
     matchRoute(exampleProfile, makeRequest('/api/auth/login', { method: 'POST' })).access,
@@ -114,19 +117,23 @@ test('public routes match only explicitly permitted method and path', () => {
 });
 
 test('profiles reject broad public prefixes and unrecognized properties', () => {
-  assert.throws(() => validateProfile({
-    ...exampleProfile,
-    routes: [{ access: 'public', methods: ['GET'], prefix: ['/'] }],
-  }));
+  assert.throws(() =>
+    validateProfile({
+      ...exampleProfile,
+      routes: [{ access: 'public', methods: ['GET'], prefix: ['/'] }],
+    }),
+  );
 
   assert.throws(() => validateProfile({ ...exampleProfile, unexpected: true }));
 });
 
 test('profiles reject rate limit configuration on public resources', () => {
-  assert.throws(() => validateProfile({
-    ...exampleProfile,
-    routes: [{ access: 'public', methods: ['GET'], exact: ['/'], rateLimit: true }],
-  }));
+  assert.throws(() =>
+    validateProfile({
+      ...exampleProfile,
+      routes: [{ access: 'public', methods: ['GET'], exact: ['/'], rateLimit: true }],
+    }),
+  );
 });
 
 test('public HTML and assets are accessible without authentication', async () => {
@@ -161,9 +168,12 @@ test('first valid token is checked once then recognized', async () => {
 
 test('unrecognized invalid tokens are rejected before reaching protected routes', async () => {
   const { gateway, environment, backend } = createTestGateway();
-  const response = await gateway(makeRequest('/api/private', {
-    headers: { Authorization: 'Bearer invalid-token' },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/private', {
+      headers: { Authorization: 'Bearer invalid-token' },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 401);
   assert.equal(backend.state.validations, 1);
@@ -175,9 +185,12 @@ test('unrecognized invalid tokens are rejected before reaching protected routes'
 
 test('named session cookie can authenticate without storing raw cookie value', async () => {
   const { gateway, environment, controls } = createTestGateway();
-  const response = await gateway(makeRequest('/api/private', {
-    headers: { Cookie: 'theme=dark; session=good-session' },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/private', {
+      headers: { Cookie: 'theme=dark; session=good-session' },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 200);
   for (const key of controls.fingerprints.keys()) {
@@ -186,24 +199,30 @@ test('named session cookie can authenticate without storing raw cookie value', a
 });
 
 test('bearer takes precedence over a refresh cookie by profile order', () => {
-  const credential = extractCredential(makeRequest('/api/private', {
-    headers: {
-      Authorization: 'Bearer good-token',
-      Cookie: 'session=good-session',
-    },
-  }), exampleProfile);
+  const credential = extractCredential(
+    makeRequest('/api/private', {
+      headers: {
+        Authorization: 'Bearer good-token',
+        Cookie: 'session=good-session',
+      },
+    }),
+    exampleProfile,
+  );
 
   assert.equal(credential.scheme.id, 'bearer');
 });
 
 test('malformed Authorization headers never fall back to cookies', async () => {
   const { gateway, environment, backend } = createTestGateway();
-  const response = await gateway(makeRequest('/api/private', {
-    headers: {
-      Authorization: 'Basic something',
-      Cookie: 'session=good-session',
-    },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/private', {
+      headers: {
+        Authorization: 'Basic something',
+        Cookie: 'session=good-session',
+      },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 401);
   assert.equal(backend.state.validations, 0);
@@ -211,9 +230,12 @@ test('malformed Authorization headers never fall back to cookies', async () => {
 
 test('duplicate authentication cookies are rejected', async () => {
   const { gateway, environment } = createTestGateway();
-  const response = await gateway(makeRequest('/api/private', {
-    headers: { Cookie: 'session=good-session; session=other' },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/private', {
+      headers: { Cookie: 'session=good-session; session=other' },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 401);
 });
@@ -222,11 +244,7 @@ test('HMAC fingerprints hide tokens and change with profile epoch', async () => 
   const credential = { scheme: exampleProfile.credentials[0], value: 'good-token' };
   const secret = 'test-fingerprint-secret-with-at-least-32-characters';
   const first = await fingerprintCredential(credential, exampleProfile, secret);
-  const second = await fingerprintCredential(
-    credential,
-    { ...exampleProfile, epoch: 2 },
-    secret,
-  );
+  const second = await fingerprintCredential(credential, { ...exampleProfile, epoch: 2 }, secret);
 
   assert.equal(first.includes('good-token'), false);
   assert.notEqual(first, second);
@@ -246,9 +264,12 @@ test('unknown token rate limiter runs before origin validation', async () => {
   const { gateway, environment, controls, backend } = createTestGateway();
   controls.unknownAllowed = false;
 
-  const response = await gateway(makeRequest('/api/private', {
-    headers: { Authorization: 'Bearer good-token' },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/private', {
+      headers: { Authorization: 'Bearer good-token' },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 429);
   assert.equal(backend.state.requests.length, 0);
@@ -259,9 +280,12 @@ test('missing rate limiter fails closed for unrecognized credentials', async () 
     environment: { UNKNOWN_LIMITER: undefined },
   });
 
-  const response = await gateway(makeRequest('/api/private', {
-    headers: { Authorization: 'Bearer good-token' },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/private', {
+      headers: { Authorization: 'Bearer good-token' },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 503);
 });
@@ -288,9 +312,12 @@ test('KV outage causes fresh origin validation, not an authentication bypass', a
     },
   });
 
-  const response = await gateway(makeRequest('/api/private', {
-    headers: { Authorization: 'Bearer good-token' },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/private', {
+      headers: { Authorization: 'Bearer good-token' },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 200);
   assert.equal(backend.state.validations, 1);
@@ -310,24 +337,31 @@ test('validator does not follow redirects to a login page', async () => {
     },
   });
 
-  const response = await gateway(makeRequest('/api/private', {
-    headers: { Authorization: 'Bearer good-token' },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/private', {
+      headers: { Authorization: 'Bearer good-token' },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 401);
 });
 
 test('validator does not accept HTTP 200 HTML login pages', async () => {
   const { gateway, environment } = createTestGateway({
-    fetchUpstream: async () => new Response('<html>Login</html>', {
-      status: 200,
-      headers: { 'Content-Type': 'text/html' },
-    }),
+    fetchUpstream: async () =>
+      new Response('<html>Login</html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      }),
   });
 
-  const response = await gateway(makeRequest('/api/private', {
-    headers: { Authorization: 'Bearer good-token' },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/private', {
+      headers: { Authorization: 'Bearer good-token' },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 401);
 });
@@ -337,9 +371,12 @@ test('validator rejects responses larger than its size limit', async () => {
     fetchUpstream: async () => Response.json({ user: { id: 'a'.repeat(20_000) } }),
   });
 
-  const response = await gateway(makeRequest('/api/private', {
-    headers: { Authorization: 'Bearer good-token' },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/private', {
+      headers: { Authorization: 'Bearer good-token' },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 401);
 });
@@ -357,14 +394,17 @@ test('POST body and cookies pass through login unchanged', async () => {
     },
   });
 
-  const response = await gateway(makeRequest('/api/auth/login', {
-    method: 'POST',
-    headers: {
-      Cookie: 'csrf=token',
-      'X-CF-Auth-Gateway-Secret': 'forged-client-value',
-    },
-    body: 'username=alice',
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        Cookie: 'csrf=token',
+        'X-CF-Auth-Gateway-Secret': 'forged-client-value',
+      },
+      body: 'username=alice',
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 200);
   assert.equal(upstream.body, 'username=alice');
@@ -386,12 +426,15 @@ test('WebSocket proxy returns the actual upstream 101 response', async () => {
     },
   });
 
-  const response = await gateway(makeRequest('/api/socket', {
-    headers: {
-      Upgrade: 'websocket',
-      Authorization: 'Bearer good-token',
-    },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/api/socket', {
+      headers: {
+        Upgrade: 'websocket',
+        Authorization: 'Bearer good-token',
+      },
+    }),
+    environment,
+  );
 
   assert.equal(response, upgradedResponse);
   assert.equal(controls.fingerprints.size, 1);
@@ -400,9 +443,12 @@ test('WebSocket proxy returns the actual upstream 101 response', async () => {
 test('WebSocket upgrades are never public just because assets are public', async () => {
   const { gateway, environment, backend } = createTestGateway();
 
-  const response = await gateway(makeRequest('/assets/app.js', {
-    headers: { Upgrade: 'websocket' },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/assets/app.js', {
+      headers: { Upgrade: 'websocket' },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 401);
   assert.equal(backend.state.requests.length, 0);
@@ -410,9 +456,12 @@ test('WebSocket upgrades are never public just because assets are public', async
 
 test('unexpected upgrade protocols are blocked', async () => {
   const { gateway, environment } = createTestGateway();
-  const response = await gateway(makeRequest('/login', {
-    headers: { Upgrade: 'h2c' },
-  }), environment);
+  const response = await gateway(
+    makeRequest('/login', {
+      headers: { Upgrade: 'h2c' },
+    }),
+    environment,
+  );
 
   assert.equal(response.status, 400);
 });
