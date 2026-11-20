@@ -1,6 +1,6 @@
 # Integration test fixture
 
-The profile in `profiles/test-server.json` is **only** for automated testing.
+The profile in `profiles/test-server.yaml` is **only** for automated testing.
 It is not a LibreChat/Immich adapter and must never be deployed as-is.
 
 ## What runs
@@ -12,7 +12,7 @@ node fetch()
 Test gateway HTTP server (127.0.0.1, ephemeral port)
     |
     v
-createGateway(test-server.json) -- real Worker engine
+createGateway(test-server.yaml) -- real Worker engine
     |
     v
 Test-only HTTPS-to-localhost fetch adapter

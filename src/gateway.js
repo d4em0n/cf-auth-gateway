@@ -4,6 +4,7 @@ import { matchRoute, validateProfile } from './profile.js';
 import { checkRateLimit } from './rate-limit.js';
 import { wasRecognized } from './recognition.js';
 import { createFirstUseValidator } from './first-use.js';
+import { enforceRequestContract } from './request-contract.js';
 
 function deny(status, message) {
   return new Response(message, {
@@ -83,6 +84,11 @@ export function createGateway(profileDefinition, { fetchUpstream = fetch } = {})
 
       // Public HTML/assets must not accidentally grant public WebSocket access.
       if (isPublicRoute && !isWebSocket) {
+        if (route.request) {
+          const validation = await enforceRequestContract(request, route.request);
+          if (validation.status) return deny(validation.status, validation.message);
+          request = validation.request;
+        }
         if (route.rateLimit === true) {
           const decision = await checkRateLimit(request, environment, profile, 'AUTH_FLOW_LIMITER');
 

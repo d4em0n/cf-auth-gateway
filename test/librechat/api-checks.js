@@ -12,7 +12,7 @@ export async function checkApiLifecycle(request, account, results) {
   const login = await request('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(account),
+    body: JSON.stringify({ email: account.email, password: account.password }),
   });
   assert.equal(login.status, 200);
   const session = await login.json();

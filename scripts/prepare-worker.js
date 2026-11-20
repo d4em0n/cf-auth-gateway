@@ -1,9 +1,10 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { validateProfile } from '../src/profile.js';
+import { loadProfile } from './load-profile.js';
 
-const source = process.argv[2] ?? process.env.GATEWAY_PROFILE ?? 'profiles/example.json';
-const profile = JSON.parse(await readFile(resolve(source), 'utf8'));
+const source = process.argv[2] ?? process.env.GATEWAY_PROFILE ?? 'profiles/example.yaml';
+const profile = await loadProfile(resolve(source));
 if (process.env.GATEWAY_HOSTNAME) profile.hostname = process.env.GATEWAY_HOSTNAME;
 validateProfile(profile);
 await mkdir('.generated', { recursive: true });

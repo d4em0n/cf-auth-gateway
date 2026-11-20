@@ -5,7 +5,7 @@
   "workers_dev": false,
   "preview_urls": false,
   "build": {
-    "command": "node scripts/prepare-worker.js profiles/librechat-v0.8.9.json",
+    "command": "node scripts/prepare-worker.js profiles/librechat-v0.8.9.yaml",
   },
   "vars": {
     "ORIGIN_URL": "https://origin-staging.example.com",

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { checkPublicContracts } from './contracts.js';
 
 const directory = process.env.GATEWAY_QA_DIR;
 const base = process.env.GATEWAY_QA_URL;
@@ -15,6 +16,12 @@ const request = async (path, init = {}) => {
 };
 const marker = randomUUID();
 const before = await readFile(logPath, 'utf8');
+const contractResults = {};
+await checkPublicContracts(
+  (path, init) => fetch(base + path, init),
+  contractResults,
+  '?contract-proof=' + marker,
+);
 assert.equal((await request('/api/convos?gateway-proof=anonymous-' + marker)).status, 401);
 assert.equal(
   (
@@ -27,7 +34,7 @@ assert.equal(
 const login = await request('/api/auth/login', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(account),
+  body: JSON.stringify({ email: account.email, password: account.password }),
 });
 assert.equal(login.status, 200);
 const token = JSON.parse(login.text).token;
@@ -37,6 +44,7 @@ const afterFirst = await readFile(logPath, 'utf8');
 assert.equal((await request('/api/convos?gateway-proof=known-' + marker, { headers })).status, 200);
 const afterKnown = await readFile(logPath, 'utf8');
 const firstEntries = afterFirst.slice(before.length);
+assert.equal(firstEntries.includes('contract-proof=' + marker), false);
 assert.equal(firstEntries.includes('anonymous-' + marker), false);
 assert.equal(firstEntries.includes('invalid-' + marker), false);
 assert.equal(firstEntries.includes('first-' + marker), true);
@@ -56,6 +64,8 @@ const expiredEntries = (await readFile(logPath, 'utf8')).slice(beforeExpired.len
 assert.equal(expiredEntries.includes('expired-' + marker), true);
 assert.equal(expiredEntries.includes('"/api/user"'), false);
 const results = {
+  ...contractResults,
+  contractRejectionsStoppedBeforeOrigin: true,
   anonymousBlockedBeforeOrigin: true,
   invalidBlockedBeforeProtectedOrigin: true,
   validFirstUseReachedOrigin: true,

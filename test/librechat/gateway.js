@@ -1,7 +1,9 @@
+import { loadProfile } from '../../scripts/load-profile.js';
 import { readFile } from 'node:fs/promises';
 import { Miniflare } from 'miniflare';
-import profile from '../../profiles/librechat-v0.8.9.json' with { type: 'json' };
 import { bundle } from '../runtime/harness.js';
+
+const profile = await loadProfile(new URL('../../profiles/librechat-v0.8.9.yaml', import.meta.url));
 
 export async function startGateway(directory, secret) {
   const script = await bundle(`

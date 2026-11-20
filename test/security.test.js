@@ -1,13 +1,15 @@
+import { loadProfile } from '../scripts/load-profile.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import profile from '../profiles/test-server.json' with { type: 'json' };
-import librechat from '../profiles/librechat-v0.8.9.json' with { type: 'json' };
 import { createGateway } from '../src/gateway.js';
 import { extractCredential, fingerprintCredential } from '../src/credentials.js';
 import { matchRoute } from '../src/profile.js';
 import { checkRateLimit } from '../src/rate-limit.js';
 import { validateCredential } from '../src/validation.js';
 import { resolveOrigin } from '../src/origin.js';
+
+const profile = await loadProfile(new URL('../profiles/test-server.yaml', import.meta.url));
+const librechat = await loadProfile(new URL('../profiles/librechat-v0.8.9.yaml', import.meta.url));
 
 const environment = {
   ORIGIN_URL: 'https://origin.fixture.test',

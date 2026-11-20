@@ -22,7 +22,12 @@ const authorized = { Authorization: 'Bearer good' };
 
 test('workerd preserves redirects, separate cookies and compressed bytes', async (t) => {
   const { request } = await setup(t);
-  const login = await request('/auth/login', { method: 'POST', redirect: 'manual' });
+  const login = await request('/auth/login', {
+    method: 'POST',
+    redirect: 'manual',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'alice', password: 'fixture-password' }),
+  });
   assert.equal(login.status, 302);
   assert.equal(login.headers.get('Location'), 'https://app.fixture.test/login');
   assert.equal(login.headers.getSetCookie().length, 2);

@@ -6,7 +6,7 @@ A lightweight, declarative Cloudflare Worker that limits unauthenticated exposur
 
 ## Request policy
 
-1. Explicit public HTML/assets/config and authentication lifecycle routes reach the backend.
+1. Explicit public HTML/assets/config and authentication lifecycle routes pass their optional request contract, then existing rate limits, before reaching the backend.
 2. Protected requests without an acceptable credential stop at the gateway.
 3. Recognized credential fingerprints go directly to the backend.
 4. Unknown credentials are selectively rate-limited and validated by a fixed backend-owned endpoint. Only a successful JSON identity response permits forwarding and fingerprint recognition.
@@ -15,7 +15,7 @@ A lightweight, declarative Cloudflare Worker that limits unauthenticated exposur
 
 Profiles contain data only. Routes match exact methods and literal paths or known directory prefixes; no file-extension bypass exists. Ordered bearer/cookie schemes have explicit validators. LibreChat's refresh cookie and Agent API keys are not session-JWT credentials.
 
-HTTP bodies, uploads/downloads, SSE and WebSocket connections stream through the gateway. WebSocket upgrades always require protected-route authentication, including on otherwise public paths. Requests never choose the origin, and origin authentication must be enforced independently of Cloudflare source IPs.
+Protected and uncontracted HTTP bodies, uploads/downloads, SSE and WebSocket connections stream through the gateway. WebSocket upgrades always require protected-route authentication, including on otherwise public paths. Requests never choose the origin, and origin authentication must be enforced independently of Cloudflare source IPs.
 
 ## Checks
 
@@ -35,19 +35,37 @@ CI runs formatting/lint, strict profile validation, unit/security/real-HTTP test
 
 ## Source map
 
-| Module                      | Responsibility                                            |
-| --------------------------- | --------------------------------------------------------- |
-| `src/gateway.js`            | Auditable request policy and explicit failure responses   |
-| `src/profile.js`            | Strict declarative configuration and route classification |
-| `src/credentials.js`        | Credential extraction and scoped HMAC fingerprints        |
-| `src/first-use.js`          | Bounded in-flight validation coalescing within an isolate |
-| `src/validation.js`         | Fixed, bounded, timed backend validator                   |
-| `src/recognition.js`        | Fixed-retention KV registry and outage behavior           |
-| `src/rate-limit.js`         | Selective Cloudflare location-local limits                |
-| `src/origin.js`             | Origin secret, headers, redirects and streaming proxy     |
-| `scripts/prepare-worker.js` | Build a selected profile into the Worker entry point      |
+| Module                            | Responsibility                                            |
+| --------------------------------- | --------------------------------------------------------- |
+| `src/gateway.js`                  | Auditable request policy and explicit failure responses   |
+| `src/profile.js`                  | Strict declarative configuration and route classification |
+| `src/request-contract.js`         | Bounded public-body checks and unchanged-byte forwarding  |
+| `src/request-contract-profile.js` | Strict request-contract configuration                     |
+| `scripts/load-profile.js`         | Build-time safe YAML/legacy JSON loader                   |
+| `src/credentials.js`              | Credential extraction and scoped HMAC fingerprints        |
+| `src/first-use.js`                | Bounded in-flight validation coalescing within an isolate |
+| `src/validation.js`               | Fixed, bounded, timed backend validator                   |
+| `src/recognition.js`              | Fixed-retention KV registry and outage behavior           |
+| `src/rate-limit.js`               | Selective Cloudflare location-local limits                |
+| `src/origin.js`                   | Origin secret, headers, redirects and streaming proxy     |
+| `scripts/prepare-worker.js`       | Build a selected profile into the Worker entry point      |
 
-`profiles/example.json` is illustrative. `profiles/test-server.json` and its HTTP fixture remain independent generic tests. `profiles/librechat-v0.8.9.json` targets the source-inspected and staging-tested LibreChat version.
+`profiles/example.yaml` is illustrative. `profiles/test-server.yaml` and its HTTP fixture remain independent generic tests. `profiles/librechat-v0.8.9.yaml` targets the source-inspected and staging-tested LibreChat version. Original schema-v1 JSON profiles remain supported as compatibility snapshots; existing deployed Workers change only after a deliberate rebuild/deployment.
+
+## YAML request contracts
+
+Schema-v2 YAML profiles optionally embed `request` in public/authentication-flow rules. Contracts bound actual body bytes, restrict Content-Type, validate flat JSON fields and deny explicitly named framework headers. Valid bytes are forwarded unchanged; invalid requests stop before the backend. Protected bodies and WebSocket authentication retain their existing behavior. YAML is parsed safely at build time and adds no Worker runtime dependency.
+
+```yaml
+# Fragment of a schemaVersion: 2 profile's routes array
+- access: auth_flow
+  methods: [POST]
+  exact: [/api/auth/refresh]
+  request:
+    maxBodyBytes: 0
+```
+
+The [request-contract guide](docs/request-contracts/README.md) includes complete copyable YAML, every supported property, defaults, migration, staging tests, LibreChat contracts, limits and rollback.
 
 ## Deploy and operate
 

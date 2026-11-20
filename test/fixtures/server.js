@@ -39,7 +39,7 @@ function sendText(response, contentType, value) {
   response.end(value);
 }
 
-async function readJson(request) {
+async function readJson(request, observeBody = () => {}) {
   let body = '';
 
   for await (const chunk of request) {
@@ -50,6 +50,7 @@ async function readJson(request) {
     }
   }
 
+  observeBody(body);
   return JSON.parse(body);
 }
 
@@ -109,6 +110,7 @@ export async function startFixtureServer({ gatewaySecret }) {
     refreshTokens: new Map(),
     sessions: new Map(),
     loginRequests: 0,
+    lastLoginBody: null,
     refreshRequests: 0,
     validationRequests: 0,
     protectedRequests: 0,
@@ -162,7 +164,9 @@ export async function startFixtureServer({ gatewaySecret }) {
 
       if (method === 'POST' && path === '/auth/login') {
         state.loginRequests += 1;
-        const credentials = await readJson(request);
+        const credentials = await readJson(request, (body) => {
+          state.lastLoginBody = body;
+        });
 
         if (
           credentials.username !== 'alice' ||

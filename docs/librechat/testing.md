@@ -37,3 +37,20 @@ Generate a private self-signed QA certificate/key as `tls.crt`/`tls.key` with SA
 Stop only this fixture with `docker compose -f test/librechat/compose.yaml down`. Private bind state remains for inspection; delete it deliberately when finished. Local and remote results are separate files. The real model provider can charge ordinary inference usage; synthetic messages request only a short marker.
 
 On the trusted Docker host, `node test/librechat/account-proof.js` additionally exercises the disposable user deletion fence and never-recognized expired credentials. It refuses to mutate databases other than `gateway_qa`, restores the fence in a finally block and should run after browser/native tests have finished. This uses the backend’s account-unavailable state; it does not introduce a gateway identity database.
+
+## Request contracts and optional MFA
+
+The runner selects the schema-v2 YAML profile locally and probes malformed public requests before its browser flow. Remote staging must be explicitly rebuilt from `profiles/librechat-v0.8.9.yaml`; legacy JSON deliberately has no contracts. Browser evidence records field names and byte counts only. The local adapter serializes Node FormData before handing wire bytes to Miniflare's separate fetch classes.
+
+`origin-proof.js` also sends the public-contract probes with a unique harmless marker and proves that marker never appears in the staging origin log. This checks rejection at the Worker rather than a matching backend error.
+
+To verify optional TOTP/backup-code challenge contracts, seed a **fresh secondary disposable account** using `seed.cjs` and a separate private account file, then run:
+
+```sh
+GATEWAY_QA_DIR=/private/qa \
+GATEWAY_QA_URL=https://chat-staging.example.com \
+GATEWAY_QA_MFA_ACCOUNT=/private/qa/fresh-mfa-account.json \
+node test/librechat/mfa.js
+```
+
+This deliberately enrolls MFA on that secondary account, verifies TOTP and backup-code login, rejects a used backup code and checks an extra field is stopped. It leaves that disposable account enrolled; rerunning requires another fresh account. It never changes global authentication configuration. Required-enrollment setup remains untested/uncontracted. The ordinary remote workflow needs only its normal disposable account and does not run this opt-in account mutation.

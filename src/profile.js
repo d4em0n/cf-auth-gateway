@@ -4,6 +4,8 @@
  * Unknown fields are rejected deliberately: a typo must never silently widen
  * a public route or disable authentication checks.
  */
+import { validateRequestContract } from './request-contract-profile.js';
+
 const PROFILE_FIELDS = [
   'schemaVersion',
   'id',
@@ -15,7 +17,7 @@ const PROFILE_FIELDS = [
   'validationTimeoutMs',
 ];
 
-const ROUTE_FIELDS = ['access', 'methods', 'exact', 'prefix', 'rateLimit'];
+const ROUTE_FIELDS = ['access', 'methods', 'exact', 'prefix', 'rateLimit', 'request'];
 const CREDENTIAL_FIELDS = ['id', 'type', 'name', 'validation'];
 const VALIDATION_FIELDS = ['method', 'path', 'jsonPath'];
 
@@ -58,9 +60,13 @@ function assertLiteralPath(path, label, isPrefix = false) {
   }
 }
 
-function validateRoute(route, index) {
+function validateRoute(route, index, schemaVersion) {
   const label = `routes[${index}]`;
   assertObject(route, label, ROUTE_FIELDS);
+  if (route.request !== undefined) {
+    if (schemaVersion !== 2) throw new Error(`${label}.request requires schemaVersion 2`);
+    validateRequestContract(route.request, `${label}.request`);
+  }
 
   if (route.access !== 'public' && route.access !== 'auth_flow') {
     throw new Error(`${label} has an unsupported access policy`);
@@ -142,7 +148,11 @@ function validateCredential(credential, index) {
 export function validateProfile(profile) {
   assertObject(profile, 'profile', PROFILE_FIELDS);
 
-  if (profile.schemaVersion !== 1 || !Number.isSafeInteger(profile.epoch) || profile.epoch < 1) {
+  if (
+    ![1, 2].includes(profile.schemaVersion) ||
+    !Number.isSafeInteger(profile.epoch) ||
+    profile.epoch < 1
+  ) {
     throw new Error('Unsupported profile schema version or epoch');
   }
 
@@ -177,7 +187,7 @@ export function validateProfile(profile) {
     throw new Error('profile.routes must contain at most 100 rules');
   }
 
-  profile.routes.forEach(validateRoute);
+  profile.routes.forEach((route, index) => validateRoute(route, index, profile.schemaVersion));
 
   if (
     !Array.isArray(profile.credentials) ||

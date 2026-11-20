@@ -32,7 +32,7 @@ const login = async () => {
   const response = await fetch(base + '/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(account),
+    body: JSON.stringify({ email: account.email, password: account.password }),
   });
   assert.equal(response.status, 200);
   return response.json();

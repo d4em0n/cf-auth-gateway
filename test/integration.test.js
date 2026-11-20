@@ -1,9 +1,11 @@
+import { loadProfile } from '../scripts/load-profile.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import testProfile from '../profiles/test-server.json' with { type: 'json' };
 import { validateProfile } from '../src/profile.js';
 import { startGatewayHarness } from './fixtures/harness.js';
+
+const testProfile = await loadProfile(new URL('../profiles/test-server.yaml', import.meta.url));
 
 const ACCESS_LIFETIME_MS = 2 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;

@@ -5,6 +5,7 @@ import { chromium } from '@playwright/test';
 import { startOrigin } from './origin.js';
 import { checkApiLifecycle } from './api-checks.js';
 import { startGateway } from './gateway.js';
+import { checkPublicContracts } from './contracts.js';
 
 const directory = process.env.GATEWAY_QA_DIR;
 if (!directory) throw new Error('GATEWAY_QA_DIR is required');
@@ -18,18 +19,33 @@ let browser;
 const results = {};
 try {
   if (!remoteUrl) runtime = await startGateway(directory, secret);
-  const request = (path, init = {}) =>
-    remoteUrl
+  const request = (path, init = {}) => {
+    // Serialize Node FormData before crossing Miniflare's separate fetch classes.
+    // This matches HTTP wire bytes instead of relying on cross-runtime instanceof.
+    if (!remoteUrl && init.body instanceof FormData) {
+      const encoded = new Request(baseUrl + path, init);
+      init = {
+        ...init,
+        headers: Object.fromEntries(encoded.headers),
+        body: encoded.body,
+        duplex: 'half',
+      };
+    }
+    return remoteUrl
       ? fetch(baseUrl + path, { ...init, redirect: 'manual' })
       : runtime.dispatchFetch(baseUrl + path, {
           ...init,
           headers: { 'CF-Connecting-IP': '192.0.2.9', ...init.headers },
         });
+  };
   const before = origin?.observations.length;
   assert.equal((await request('/api/convos')).status, 401);
   if (origin) assert.equal(origin.observations.length, before);
   results.anonymousPrivateApiRejected = true;
   results.anonymousStoppedBeforeOrigin = origin ? true : 'check staging access logs';
+  const beforeContracts = origin?.observations.length;
+  await checkPublicContracts(request, results);
+  if (origin) assert.equal(origin.observations.length, beforeContracts);
   const bad = await request('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -53,6 +69,18 @@ try {
   const page = await context.newPage();
   const pageErrors = [];
   const assetFailures = [];
+  const authShapes = [];
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (request.method() !== 'POST' || !['/api/auth/login', '/api/auth/refresh'].includes(path))
+      return;
+    const body = request.postDataBuffer();
+    authShapes.push({
+      path,
+      bytes: body?.length ?? 0,
+      fields: body?.length ? Object.keys(JSON.parse(body)).sort() : [],
+    });
+  });
   page.on('pageerror', () => pageErrors.push('browser exception'));
   page.on('response', (response) => {
     const path = new URL(response.url()).pathname;
@@ -189,6 +217,7 @@ try {
   assert.deepEqual(pageErrors, []);
   results.assetsWithoutFailures = true;
   results.browserExceptions = 0;
+  results.browserAuthRequestShapes = authShapes;
   console.log(JSON.stringify(results, null, 2));
   await writeFile(
     directory + (remoteUrl ? '/edge-results.json' : '/results.json'),

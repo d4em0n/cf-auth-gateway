@@ -1,6 +1,7 @@
+import { loadProfile } from '../../scripts/load-profile.js';
 import { build } from 'esbuild';
 import { Miniflare } from 'miniflare';
-import profile from '../../profiles/test-server.json' with { type: 'json' };
+const profile = await loadProfile(new URL('../../profiles/test-server.yaml', import.meta.url));
 
 export const secret = 'runtime-origin-secret-at-least-32-characters';
 
