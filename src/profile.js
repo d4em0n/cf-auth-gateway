@@ -6,9 +6,10 @@ export function validateProfile(p){
  if(!Number.isInteger(p.retentionDays)||p.retentionDays<1||p.retentionDays>90||!Number.isInteger(p.validationTimeoutMs)||p.validationTimeoutMs<100||p.validationTimeoutMs>10000)throw Error('invalid limits');
  if(!Array.isArray(p.routes)||p.routes.length>100)throw Error('invalid routes');
  for(const r of p.routes){
-  exactKeys(r,['access','methods','exact','prefix']);
+  exactKeys(r,['access','methods','exact','prefix','rateLimit']);
   if(!['public','auth_flow'].includes(r.access)||!Array.isArray(r.methods)||!r.methods.length||r.methods.some(m=>!['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'].includes(m)))throw Error('invalid route');
   if(!(r.exact?.length||r.prefix?.length))throw Error('empty route');
+  if(r.rateLimit!==undefined&&(r.access!=='auth_flow'||typeof r.rateLimit!=='boolean'))throw Error('invalid route rate limit');
   for(const x of r.exact??[])if(!safePath(x)||(x!=='/'&&x.endsWith('/')))throw Error('invalid exact path');
   for(const x of r.prefix??[])if(!safePath(x)||x==='/'||!x.endsWith('/'))throw Error('invalid prefix');
  }
@@ -30,8 +31,9 @@ export function requestPath(url){
  let p;try{p=new URL(url).pathname;}catch{return null;}
  return /^\/[\w.\-/%]*$/.test(p)?p:null;
 }
-export function routeAccess(profile,method,path){
- if(!path)return 'deny';
- for(const r of profile.routes)if(r.methods.includes(method)&&(r.exact?.includes(path)||r.prefix?.some(x=>path.startsWith(x))))return r.access;
- return 'protected';
+export function routeRule(profile,method,path){
+ if(!path)return {access:'deny'};
+ for(const r of profile.routes)if(r.methods.includes(method)&&(r.exact?.includes(path)||r.prefix?.some(x=>path.startsWith(x))))return r;
+ return {access:'protected'};
 }
+export function routeAccess(profile,method,path){return routeRule(profile,method,path).access;}
