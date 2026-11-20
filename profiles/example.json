@@ -41,7 +41,8 @@
       ],
       "exact": [
         "/api/auth/login"
-      ]
+      ],
+      "rateLimit": true
     },
     {
       "access": "auth_flow",
