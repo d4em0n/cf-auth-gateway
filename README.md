@@ -57,6 +57,8 @@ npm run build
 
 The CI workflow runs all three checks. The build uses Wrangler `--dry-run` and does not publish a Worker.
 
+The integration suite starts two local HTTP servers (a fake application origin and an HTTP gateway wrapping the actual Worker engine) using `profiles/test-server.json`. It exercises HTML/JS/CSS, login, session cookies, token refresh, expiry, logout, rate limiting, SSE and origin enforcement. See [`test/README.md`](test/README.md).
+
 ## Deployment prerequisites
 
 1. Replace the example profile with a profile whose public endpoints, credential scheme, and validation response have been verified against the actual backend and client versions.
