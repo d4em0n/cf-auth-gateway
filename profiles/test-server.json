@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "id": "fixture-app",
+  "hostname": "app.fixture.test",
+  "epoch": 1,
+  "routes": [
+    {
+      "access": "public",
+      "methods": ["GET", "HEAD"],
+      "exact": ["/", "/login"]
+    },
+    {
+      "access": "public",
+      "methods": ["GET", "HEAD"],
+      "prefix": ["/assets/"]
+    },
+    {
+      "access": "public",
+      "methods": ["GET"],
+      "exact": ["/api/version"]
+    },
+    {
+      "access": "auth_flow",
+      "methods": ["POST"],
+      "exact": ["/auth/login"],
+      "rateLimit": true
+    },
+    {
+      "access": "auth_flow",
+      "methods": ["POST"],
+      "exact": ["/auth/refresh"],
+      "rateLimit": true
+    },
+    {
+      "access": "auth_flow",
+      "methods": ["POST"],
+      "exact": ["/auth/logout"]
+    }
+  ],
+  "credentials": [
+    {
+      "id": "access-token",
+      "type": "bearer",
+      "validation": {
+        "method": "GET",
+        "path": "/auth/whoami",
+        "jsonPath": "user.id"
+      }
+    },
+    {
+      "id": "browser-session",
+      "type": "cookie",
+      "name": "session",
+      "validation": {
+        "method": "GET",
+        "path": "/auth/session",
+        "jsonPath": "user.id"
+      }
+    }
+  ],
+  "retentionDays": 30,
+  "validationTimeoutMs": 3000
+}

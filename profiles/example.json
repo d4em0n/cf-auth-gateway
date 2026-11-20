@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "example",
+  "hostname": "chat.example.com",
+  "epoch": 1,
+  "routes": [
+    {
+      "access": "public",
+      "methods": ["GET", "HEAD"],
+      "exact": ["/", "/login"]
+    },
+    {
+      "access": "public",
+      "methods": ["GET", "HEAD"],
+      "prefix": ["/assets/"]
+    },
+    {
+      "access": "public",
+      "methods": ["GET"],
+      "exact": ["/api/version"]
+    },
+    {
+      "access": "auth_flow",
+      "methods": ["POST"],
+      "exact": ["/api/auth/login"],
+      "rateLimit": true
+    },
+    {
+      "access": "auth_flow",
+      "methods": ["POST"],
+      "exact": ["/api/auth/refresh"]
+    },
+    {
+      "access": "auth_flow",
+      "methods": ["POST"],
+      "exact": ["/api/auth/logout"]
+    }
+  ],
+  "credentials": [
+    {
+      "id": "bearer",
+      "type": "bearer",
+      "validation": {
+        "method": "GET",
+        "path": "/api/auth/me",
+        "jsonPath": "user.id"
+      }
+    },
+    {
+      "id": "session",
+      "type": "cookie",
+      "name": "session",
+      "validation": {
+        "method": "GET",
+        "path": "/api/auth/session",
+        "jsonPath": "user.id"
+      }
+    }
+  ],
+  "retentionDays": 30,
+  "validationTimeoutMs": 2500
+}

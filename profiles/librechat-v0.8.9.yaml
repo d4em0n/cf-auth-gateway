@@ -1,0 +1,109 @@
+schemaVersion: 2
+id: librechat-v089
+hostname: chat.example.com
+epoch: 1
+routes:
+  - access: public
+    methods:
+      - GET
+      - HEAD
+    exact:
+      - /
+      - /login
+      - /index.html
+      - /manifest.webmanifest
+      - /robots.txt
+      - /registerSW.js
+      - /sw.js
+      - /sw-heal.js
+      - /workbox-3e0f4020.js
+      - /theme-boot.json
+    prefix:
+      - /assets/
+      - /c/
+  - access: public
+    methods:
+      - GET
+    exact:
+      - /api/config
+  - access: auth_flow
+    methods:
+      - POST
+    exact:
+      - /api/auth/login
+    rateLimit: true
+    request:
+      contentTypes:
+        - application/json
+      maxBodyBytes: 8192
+      denyHeaders:
+        - Next-Action
+        - X-Middleware-Subrequest
+      json:
+        type: object
+        required:
+          - email
+          - password
+        additionalProperties: false
+        properties:
+          email:
+            type: string
+            maxLength: 320
+          password:
+            type: string
+            maxLength: 128
+  - access: auth_flow
+    methods:
+      - POST
+    exact:
+      - /api/auth/refresh
+      - /api/auth/logout
+    request:
+      maxBodyBytes: 0
+  - access: auth_flow
+    methods:
+      - POST
+    exact:
+      - /api/auth/2fa/setup
+      - /api/auth/2fa/setup/confirm
+      - /api/auth/2fa/setup/acknowledge
+      - /api/auth/2fa/setup/finalize
+      - /api/auth/2fa/setup/cancel
+    rateLimit: true
+  - access: auth_flow
+    methods:
+      - POST
+    exact:
+      - /api/auth/2fa/verify-temp
+    rateLimit: true
+    request:
+      contentTypes:
+        - application/json
+      maxBodyBytes: 12288
+      denyHeaders:
+        - Next-Action
+        - X-Middleware-Subrequest
+      json:
+        type: object
+        required:
+          - tempToken
+        additionalProperties: false
+        properties:
+          tempToken:
+            type: string
+            maxLength: 8192
+          token:
+            type: string
+            maxLength: 32
+          backupCode:
+            type: string
+            maxLength: 256
+credentials:
+  - id: access-token
+    type: bearer
+    validation:
+      method: GET
+      path: /api/user
+      jsonPath: id
+retentionDays: 30
+validationTimeoutMs: 2500

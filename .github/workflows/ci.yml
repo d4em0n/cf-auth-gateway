@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feat/gateway-v1]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Validate declarative profiles
+        run: npm run check
+      - name: Unit, negative security and HTTP integration tests
+        run: npm test
+      - name: Workers runtime integration tests
+        run: npm run test:runtime
+      - name: Wrangler dry-run build
+        run: npm run build

@@ -1,0 +1,37 @@
+name: Isolated LibreChat compatibility
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    # This environment must point to disposable staging, never an owner's account.
+    environment: librechat-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare disposable test account file
+        env:
+          QA_ACCOUNT: ${{ secrets.LIBRECHAT_QA_ACCOUNT_JSON }}
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/librechat-qa"
+          node --input-type=module -e 'import fs from "node:fs"; const account=JSON.parse(process.env.QA_ACCOUNT); fs.writeFileSync(process.env.RUNNER_TEMP+"/librechat-qa/account.json", JSON.stringify(account));'
+      - name: Real browser, model stream, expiry, refresh, API upload and download
+        env:
+          GATEWAY_QA_DIR: ${{ runner.temp }}/librechat-qa
+          GATEWAY_QA_URL: ${{ secrets.LIBRECHAT_QA_URL }}
+        run: npm run test:librechat
+      - name: Remove account and browser evidence
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/librechat-qa"

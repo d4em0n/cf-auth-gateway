@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "id": "librechat-v089",
+  "hostname": "chat.example.com",
+  "epoch": 1,
+  "routes": [
+    {
+      "access": "public",
+      "methods": ["GET", "HEAD"],
+      "exact": [
+        "/",
+        "/login",
+        "/index.html",
+        "/manifest.webmanifest",
+        "/robots.txt",
+        "/registerSW.js",
+        "/sw.js",
+        "/sw-heal.js",
+        "/workbox-3e0f4020.js",
+        "/theme-boot.json"
+      ],
+      "prefix": ["/assets/", "/c/"]
+    },
+    {
+      "access": "public",
+      "methods": ["GET"],
+      "exact": ["/api/config"]
+    },
+    {
+      "access": "auth_flow",
+      "methods": ["POST"],
+      "exact": ["/api/auth/login"],
+      "rateLimit": true
+    },
+    {
+      "access": "auth_flow",
+      "methods": ["POST"],
+      "exact": ["/api/auth/refresh", "/api/auth/logout"]
+    },
+    {
+      "access": "auth_flow",
+      "methods": ["POST"],
+      "exact": [
+        "/api/auth/2fa/verify-temp",
+        "/api/auth/2fa/setup",
+        "/api/auth/2fa/setup/confirm",
+        "/api/auth/2fa/setup/acknowledge",
+        "/api/auth/2fa/setup/finalize",
+        "/api/auth/2fa/setup/cancel"
+      ],
+      "rateLimit": true
+    }
+  ],
+  "credentials": [
+    {
+      "id": "access-token",
+      "type": "bearer",
+      "validation": {
+        "method": "GET",
+        "path": "/api/user",
+        "jsonPath": "id"
+      }
+    }
+  ],
+  "retentionDays": 30,
+  "validationTimeoutMs": 2500
+}
