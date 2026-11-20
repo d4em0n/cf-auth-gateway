@@ -97,5 +97,21 @@ export async function checkApiLifecycle(request, account, results) {
     headers: { Cookie: originalCookie },
   });
   assert.equal(replay.status, 401);
+  let usableCookie;
+  for (const cookie of rotated) {
+    const candidate = await request('/api/auth/refresh', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    });
+    if (candidate.status === 200) usableCookie = cookieHeader(candidate);
+    else assert.equal(candidate.status, 401);
+  }
+  assert.ok(usableCookie, 'Concurrent refresh must leave a usable winning cookie');
+  const finalRefresh = await request('/api/auth/refresh', {
+    method: 'POST',
+    headers: { Cookie: usableCookie },
+  });
+  assert.equal(finalRefresh.status, 200);
+  results.concurrentRefreshHasUsableWinner = true;
   results.apiCookieRotationAndReplay = true;
 }

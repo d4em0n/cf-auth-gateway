@@ -94,18 +94,25 @@ try {
   results.recognitionHit = origin ? true : 'check staging access logs';
   await page
     .getByRole('textbox', { name: 'Message input', exact: true })
-    .fill('Reply exactly GATEWAY_LIBRECHAT_OK.');
+    .fill(
+      'Write a paragraph of 200 words about software testing. End with a separate paragraph containing exactly GATEWAY_LIBRECHAT_OK.',
+    );
   const streamResponse = page.waitForResponse((response) =>
     response.headers()['content-type']?.includes('text/event-stream'),
   );
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
   const stream = await streamResponse;
   assert.equal(stream.status(), 200);
-  await page.getByText('GATEWAY_LIBRECHAT_OK', { exact: true }).last().waitFor({ timeout: 120000 });
   results.realModelStreamingConversation = true;
   const resumeUrl = new URL(stream.url());
   resumeUrl.searchParams.set('resume', 'true');
-  const resumed = await request(resumeUrl.pathname + resumeUrl.search, { headers: bearer });
+  const resumed = await request(resumeUrl.pathname + resumeUrl.search, {
+    headers: {
+      ...bearer,
+      'User-Agent':
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/156.0.0.0 Safari/537.36',
+    },
+  });
   assert.equal(resumed.status, 200);
   assert.match(resumed.headers.get('content-type'), /text\/event-stream/);
   const resumeReader = resumed.body.getReader();
@@ -113,6 +120,7 @@ try {
   assert.ok(firstResumedEvent.value?.length);
   await resumeReader.cancel();
   results.resumableStreamAndCancellation = true;
+  await page.getByText('GATEWAY_LIBRECHAT_OK', { exact: true }).last().waitFor({ timeout: 120000 });
   console.log('Passed real model stream');
   await page.screenshot({ path: directory + '/browser.png' });
   // Listen before expiry: LibreChat may refresh automatically before a reload.

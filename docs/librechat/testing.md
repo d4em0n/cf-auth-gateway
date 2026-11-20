@@ -1,6 +1,6 @@
 # Isolated LibreChat tests
 
-The integration requires a real LibreChat server, disposable verified account, working model provider, enabled image uploads/downloads, and a short access-token lifetime (60 seconds). It deliberately creates synthetic conversations and an 8×8 PNG. Never use an owner's account/database. Do not upload browser screenshots, traces, cookies, account files or server logs to public CI artifacts.
+The integration requires a real LibreChat server, disposable verified account, working model provider, enabled image uploads/downloads, and a short access-token lifetime (60 seconds). It deliberately creates synthetic conversations, a roughly 200-word streamed response for an active resumption check, and an 8×8 PNG. Never use an owner's account/database. Do not upload browser screenshots, traces, cookies, account files or server logs to public CI artifacts.
 
 ## Existing staging Worker
 
@@ -16,7 +16,7 @@ The browser uses real HTTPS verification for remote tests. `BROWSER_EXECUTABLE` 
 
 For origin-log proof, additionally set `GATEWAY_QA_ORIGIN_LOG` to **only the staging vhost's access log** and run `node test/librechat/origin-proof.js`. It uses harmless unique query markers to prove missing/invalid credentials never reach protected handlers, valid first use reaches origin, a recognized hit skips validation, and a recognized expired JWT reaches LibreChat and receives 401. Ensure unrelated authenticated tests are stopped during the measured log intervals.
 
-A separate `Isolated LibreChat compatibility` workflow is manually dispatched in the `librechat-staging` GitHub environment. Supply `LIBRECHAT_QA_URL` and `LIBRECHAT_QA_ACCOUNT_JSON` secrets for an isolated deployment; it runs the remote browser/API suite without publishing sensitive artifacts. It does not create infrastructure or cut over traffic. Hosted CI cannot inspect private origin logs; run that proof separately on the trusted host. Check the chosen workflow ref before running it with secrets.
+A separate `Isolated LibreChat compatibility` workflow is manually dispatched in the `librechat-staging` GitHub environment. Supply `LIBRECHAT_QA_URL` and `LIBRECHAT_QA_ACCOUNT_JSON` secrets for an isolated deployment; it runs the remote browser/API suite without publishing sensitive artifacts. It does not create infrastructure or cut over traffic. Hosted CI cannot inspect private origin logs; run that proof separately on the trusted host. Check the chosen workflow ref before running it with secrets. A new workflow existing only on this draft branch may return 404 from the dispatch API until it is present on the default branch; use the trusted-host command meanwhile. No merge is required for the host-run suite.
 
 ## Local same-image fixture
 
@@ -35,3 +35,5 @@ docker compose -f test/librechat/compose.yaml exec -T api node /app/config/gatew
 Generate a private self-signed QA certificate/key as `tls.crt`/`tls.key` with SAN `chat.example.com`, `origin.fixture.test`, and IP `127.0.0.1`. Set local staging DOMAIN_CLIENT/DOMAIN_SERVER to `https://chat.example.com:19444`. With no `GATEWAY_QA_URL`, the runner starts an actual workerd/Miniflare HTTPS gateway on loopback 19444, a secret-enforcing TLS origin on 19443, and trusts only the QA origin certificate. Chromium maps chat.example.com to loopback; certificate bypass is confined to this local browser fixture. No production TLS bypass is present.
 
 Stop only this fixture with `docker compose -f test/librechat/compose.yaml down`. Private bind state remains for inspection; delete it deliberately when finished. Local and remote results are separate files. The real model provider can charge ordinary inference usage; synthetic messages request only a short marker.
+
+On the trusted Docker host, `node test/librechat/account-proof.js` additionally exercises the disposable user deletion fence and never-recognized expired credentials. It refuses to mutate databases other than `gateway_qa`, restores the fence in a finally block and should run after browser/native tests have finished. This uses the backend’s account-unavailable state; it does not introduce a gateway identity database.
