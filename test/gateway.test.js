@@ -8,7 +8,7 @@ const mem=new Map();
 const env={ORIGIN_URL:'https://origin.example.net/',HMAC_SECRET:'test-only-32-character-secret-xxxxxxxxx',RECOGNIZED:{async get(k){return mem.get(k)??null},async put(k,v){mem.set(k,v);}}};
 let count=0,valid=true;
 globalThis.fetch=async req=>{
- const path=new URL(typeof req==='string'?req:req.url).pathname;
+ const path=new URL(typeof req==='string'||req instanceof URL?req:req.url).pathname;
  if(path==='/api/auth/me'){count++;return Response.json(valid?{user:{id:'a'}}:{},{status:valid?200:401});}
  return Response.json({ok:true});
 };
