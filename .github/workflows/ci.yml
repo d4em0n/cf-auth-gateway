@@ -1,17 +1,29 @@
 name: CI
+
 on:
   push:
-    branches: [main, feat/gateway-v1]
+    branches:
+      - main
+      - feat/gateway-v1
   pull_request:
+
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --no-audit --no-fund
-      - run: npm run check
-      - run: npm test
-      - run: npm run build
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate profiles
+        run: npm run check
+      - name: Test gateway
+        run: npm test
+      - name: Build Worker without deploying
+        run: npm run build

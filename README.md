@@ -1,46 +1,94 @@
-# cf-auth-gateway
+# Cloudflare Authentication Gateway
 
-Experimental, profile-driven authentication-aware request filter on Cloudflare Workers.
+A small, **profile-driven Cloudflare Worker** that filters requests to an existing self-hosted application without replacing its login system.
 
-**Goal:** Keep normal browser and native iOS/Android app logins working, but block most unknown unauthenticated requests before they reach a self-hosted application's protected API. The application **still performs all real authorization**.
+It is an **authentication-aware exposure filter**, not a new identity provider or a second factor of authentication. If a credential was valid at least once, the gateway can recognize it for a configured period; the application remains responsible for expiry, revocation, and all per-user authorization.
 
-## How it works
+**Status: experimental. Do not deploy the example profile to production.**
 
-1. Exact public routes (login page, CSS, JS, safe version endpoints) and explicitly listed authentication lifecycle routes are proxied as-is.
-2. Protected requests must carry a configured bearer token or named session cookie.
-3. The Worker computes an HMAC-SHA256 fingerprint (not a raw stored token) and looks it up in Workers KV.
-4. Unknown credentials are sent to a **fixed upstream validation endpoint** with only the credential and an optional private gateway origin header.
-5. A valid JSON response with a nonempty configured user identity field permits the request and creates a fixed-lifetime KV record. Recognition lasts 30 days by default even if the underlying token has since expired. The backend remains responsible for expiry, revocation, and permissions.
-6. Unknown invalid credentials fail closed. Previously recognized credentials are forwarded without revalidation; this is **not** an independent authentication factor.
+## Request flow
 
-## Getting started (example profile is NOT for production)
+```text
+Browser / native app
+    |
+    v
+Cloudflare Worker
+    |-- public route (HTML/CSS/JS/config) -----------> origin
+    |-- auth flow (login/refresh/logout) ------------> origin
+    |
+    `-- protected route
+          |-- no credential -------------------------> 401
+          |-- recognized fingerprint ----------------> origin
+          `-- unknown credential
+                |-- rate limit ----------------------> 429
+                |-- validator rejects ---------------> 401
+                |-- validator unavailable -----------> 503
+                `-- validator confirms identity ----> remember HMAC fingerprint -> origin
+```
 
-- Install Node.js 22+, run `npm install`, `npm test`, `npm run check`, and `npm run build`.
-- Copy `profiles/example.json` to an application-specific profile. Adjust `src/index.js` to import that profile. Confirm all login, refresh, asset, cookie, and validation paths against the actual backend; the supplied paths are **illustrations only**.
-- Set `ORIGIN_URL` as a Worker environment variable to an **HTTPS origin hostname distinct from the public gateway hostname**. Never point it back to the gateway or it can create a proxy loop. The origin must be reachable by Cloudflare and preserve the app's expected host and cookie behavior.
-- Create a Workers KV namespace and bind it in `wrangler.jsonc` as `RECOGNIZED`. Generate a random `HMAC_SECRET` with at least 32 characters using `wrangler secret put HMAC_SECRET`. Optionally configure `ORIGIN_GATEWAY_SECRET` using `wrangler secret put ORIGIN_GATEWAY_SECRET`.
-- Deploy only after configuring a catch-all Worker route for the application hostname, **fail-closed routing**, origin-side bypass protection, and verified app profile tests.
-- Ensure the reverse proxy at your actual origin **checks** the injected gateway secret (or uses a zone-specific mTLS/AOP origin control). Cloudflare IP allowlisting alone is insufficient. Do not deploy a gateway secret that the origin does not validate.
-- Avoid public registration if you want this to materially reduce who can gain backend access; any valid registered account can mint a recognized credential.
+WebSocket upgrades take the **protected** branch, even if the request path matches a public route. A successful upstream WebSocket `101` response is passed back unchanged. Server-sent events and HTTP response bodies are streamed.
 
-## Profile contract
+## Structure
 
-JSON schema version 1; no executable profile code. Every route rule is either `public` or `auth_flow`, with exact methods and literal paths or constrained path prefixes. Unmatched routes are protected. Credentials are `bearer` or named `cookie`; each specifies a fixed validation method/path and dot-separated JSON field containing a nonempty string identity. Profile changes can increment `epoch` to ignore old fingerprints. Retention may be 1–90 days.
+| Module | Responsibility |
+| --- | --- |
+| `src/gateway.js` | Explicit request flow; no app-specific logic |
+| `src/profile.js` | Strict declarative profile validation and route matching |
+| `src/credentials.js` | Bearer/cookie extraction and HMAC fingerprint |
+| `src/validation.js` | Unknown credential validation against a fixed origin URL |
+| `src/recognition.js` | KV registry with fixed retention |
+| `src/rate-limit.js` | Small Cloudflare per-IP rate-limit adapter |
+| `src/origin.js` | Origin URL, secret header, HTTP and WebSocket proxy |
+| `profiles/example.json` | **Illustrative only**, not a verified application profile |
+| `test/gateway.test.js` | Mocked upstream and gateway behavior tests |
 
-**No generic CSS/JS extension bypass**: only approved asset directories should be public. Sensitive HTML and API responses must not be shared-cacheable.
+Profiles contain **data only**, never executable scripts. Routes are method-scoped and use exact paths or constrained directory prefixes. Every unlisted route requires a credential.
 
-## Boundaries and known limitations
+## Local checks
 
-- A remembered credential, even if expired or stolen, can reach the backend until its fingerprint expires. The backend must continue authenticating every request and checking per-resource permissions.
-- A new credential requires a backend validation call. This implementation has no single-flight coalescing or explicit rate limiter yet. Before exposing a production service, add Cloudflare WAF/rate limits to login, refresh, and credential-miss paths.
-- Cookies are simplistic named values. Compound cookie authentication, OAuth redirects, CSRF/session variants, cross-origin redirects, signed download links, WebSockets, and specialized client protocols require profile-specific verification and integration tests.
-- Validations use bounded 16 KiB JSON response bodies, timeouts, and do not follow redirects.
-- The gateway does not have an emergency blocklist yet; origin authorization is authoritative.
-- Workers KV may be eventually consistent; a brand-new fingerprint can be revalidated in another region. It cannot guarantee global instantaneous revocation.
-- Do not publish secrets, cache protected responses ahead of the Worker, or configure Worker fallback to bypass processing.
-- HTTPS origin hostname may require configuration of Host/SNI/TLS and cookie-domain behavior for your specific application. Test it end-to-end before enabling traffic.
-- This repository contains a generic proof-of-concept, **not a verified LibreChat adapter**, and is not production ready.
+Node.js 22 or later:
 
-## CI
+```sh
+npm install
+npm run check
+npm test
+npm run build
+```
 
-GitHub Actions checks example profile validity, Node tests, and a Wrangler dry-run bundle on pull requests.
+The CI workflow runs all three checks. The build uses Wrangler `--dry-run` and does not publish a Worker.
+
+## Deployment prerequisites
+
+1. Replace the example profile with a profile whose public endpoints, credential scheme, and validation response have been verified against the actual backend and client versions.
+2. Set `ORIGIN_URL` to a separate HTTPS hostname that reaches your server. The Worker intentionally disallows looping back to the public gateway hostname.
+3. Bind a Workers KV namespace as `RECOGNIZED` in `wrangler.jsonc`. A valid namespace ID is required; none is pre-configured.
+4. Create `HMAC_SECRET` and `ORIGIN_GATEWAY_SECRET` as Wrangler secrets, each at least 32 random characters. Do **not** store them in Git.
+5. Configure the origin reverse proxy to **verify `X-CF-Auth-Gateway-Secret` on every request**, reject callers without it, and strip/override identity headers. A Cloudflare IP allowlist by itself does **not** prove a request came through this Worker.
+6. Set a catch-all Worker Route for the public hostname with **fail-closed behavior**. Do not use `passThroughOnException` or allow cached protected responses to bypass the Worker.
+7. Configure the provided `AUTH_FLOW_LIMITER` and `UNKNOWN_LIMITER` bindings; their thresholds are per Cloudflare location and approximate. Also use appropriate WAF/rate-limit rules for distributed attacks.
+8. Test browser login, mobile clients, refresh flows, cookies and WebSockets with the **real** service before making the host public.
+
+Example deployment instructions are deliberately not automated. The gateway's backend and Cloudflare account need to be configured correctly before deployment.
+
+## Application profile
+
+`profiles/example.json` demonstrates:
+
+- `public` routes for the login shell, version metadata and a known static asset directory;
+- `auth_flow` routes that forward the application's own login/refresh/logout requests;
+- ordered `bearer` and named `cookie` credentials, each with a fixed validator endpoint;
+- `retentionDays` (1–90), `validationTimeoutMs`, and `epoch` to invalidate previously recognized fingerprints when the validation contract changes.
+
+The validator only considers an HTTP 200 JSON response with the configured **nonempty identity field** successful. HTTP redirects, login HTML, oversized payloads, and errors never count as successful validation. Your application-specific coding agent must verify that this response cannot be produced by unauthenticated callers.
+
+## Security model and limitations
+
+- Recognized **does not mean currently authorized**. An expired, revoked or stolen but previously recognized token can still reach the backend during retention. The backend must validate every protected request independently.
+- A credential may be revalidated in another location while Workers KV is propagating its record.
+- The gateway stores only HMAC fingerprints, not plaintext bearer tokens or cookies. The original credential still passes to the backend as part of the original request.
+- Login and refresh endpoints must remain reachable by unauthenticated clients. They are still exposed to the internet and need abuse controls.
+- Do not enable public self-registration if you expect this gateway to significantly restrict who can become recognized.
+- WebSocket **handshakes** are filtered; messages inside an established WebSocket are not inspected. WebSocket clients using query-string tokens are **not** supported in v1.
+- Apps using multiple independent session cookies, signed download URLs or custom auth protocols require explicit adapter work and tests.
+- Cookie domains, reverse-proxy Host rules and login callbacks must be verified for each origin hostname.
+- There is no dashboard, identity database, global strict rate limit or immediate credential revocation system. V1 is intentionally small and auditable.
