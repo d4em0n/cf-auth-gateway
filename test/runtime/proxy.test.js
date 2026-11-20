@@ -73,9 +73,12 @@ test('workerd WebSocket carries messages and clean disconnects through gateway',
   // Prime recognition using the same runtime and its real KV binding.
   assert.equal((await request('/api/private', { headers: authorized })).status, 200);
   const local = new URL(await runtime.ready);
-  local.protocol = 'ws:';
+  local.protocol = 'wss:';
   local.pathname = '/api/socket';
-  const socket = new WebSocket(local, { headers: { ...authorized, Host: 'app.fixture.test' } });
+  const socket = new WebSocket(local, {
+    headers: { ...authorized, Host: 'app.fixture.test' },
+    rejectUnauthorized: false, // Only the ephemeral local test certificate.
+  });
   t.after(() => socket.terminate());
   await once(socket, 'open');
   socket.send('hello');

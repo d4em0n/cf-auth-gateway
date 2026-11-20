@@ -46,10 +46,16 @@ export function createGateway(profileDefinition, { fetchUpstream = fetch } = {})
   return async function handleRequest(request, environment) {
     try {
       const origin = resolveOrigin(environment, profile);
-      const hostname = new URL(request.url).hostname.toLowerCase();
+      const publicUrl = new URL(request.url);
+      const hostname = publicUrl.hostname.toLowerCase();
 
       if (hostname !== profile.hostname) {
         return deny(421, 'Unknown hostname');
+      }
+
+      // Never return application tokens or session cookies over plaintext ingress.
+      if (publicUrl.protocol !== 'https:') {
+        return deny(400, 'HTTPS required');
       }
 
       if (

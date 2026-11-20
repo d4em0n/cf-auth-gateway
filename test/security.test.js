@@ -188,3 +188,24 @@ test('concurrent first-use requests share one validation without a persistent al
   await run();
   assert.equal(validations, 2);
 });
+
+test('plaintext ingress cannot receive login tokens or reach any origin route', async () => {
+  let forwarded = false;
+  const gateway = createGateway(profile, {
+    fetchUpstream: async () => {
+      forwarded = true;
+      return new Response();
+    },
+  });
+  for (const path of ['/login', '/auth/login', '/api/private']) {
+    const response = await gateway(
+      new Request('http://app.fixture.test' + path, {
+        method: path === '/auth/login' ? 'POST' : 'GET',
+      }),
+      environment,
+    );
+    assert.equal(response.status, 400);
+    assert.equal(await response.text(), 'HTTPS required');
+  }
+  assert.equal(forwarded, false);
+});

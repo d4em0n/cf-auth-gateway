@@ -22,6 +22,7 @@ export async function runtimeGateway(originScript, options = {}) {
     export default {fetch: handle};
   `);
   const worker = new Miniflare({
+    https: true,
     workers: [
       {
         name: 'gateway',

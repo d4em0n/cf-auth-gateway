@@ -10,7 +10,7 @@ Increment the profile's `epoch` and rebuild/redeploy to invalidate recognition a
 
 | Result | What to inspect                                                                                                                                                                                                 |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400    | Method-override headers/query, unsupported Upgrade or non-GET WebSocket                                                                                                                                         |
+| 400    | Plaintext ingress (use HTTPS), method-override headers/query, unsupported Upgrade or non-GET WebSocket                                                                                                          |
 | 401    | Missing/malformed credential; duplicate cookies; wrong credential class; validator rejected identity. A forwarded backend 401 can also mean expiry/revocation. Compare redacted origin metadata to distinguish. |
 | 403    | Origin secret mismatch, origin/WAF rules or backend permissions; check which hop returned it.                                                                                                                   |
 | 421    | Public request hostname differs from the compiled profile.                                                                                                                                                      |
