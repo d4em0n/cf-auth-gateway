@@ -6,6 +6,43 @@ import { runtimeGateway } from './harness.js';
 const profile = await loadProfile(new URL('../../profiles/test-server.yaml', import.meta.url));
 const origin = 'export default { fetch(request) { return new Response(request.body); } };';
 
+test('workerd enforces each LibreChat setup contract without changing validated bytes', async (t) => {
+  const librechat = await loadProfile(
+    new URL('../../profiles/librechat-v0.8.9.yaml', import.meta.url),
+  );
+  let calls = 0;
+  const runtime = await runtimeGateway(origin, {
+    profile: librechat,
+    outboundService: async (request) => {
+      calls += 1;
+      return new Response(await request.arrayBuffer());
+    },
+  });
+  t.after(() => runtime.dispose());
+  for (const [path, shape] of [
+    ['setup', { tempToken: 'temporary-token' }],
+    ['setup/cancel', { tempToken: 'temporary-token' }],
+    ['setup/confirm', { tempToken: 'temporary-token', token: '123456' }],
+    ['setup/acknowledge', { acknowledgementToken: 'acknowledgement-token' }],
+    ['setup/finalize', { finalizationToken: 'finalization-token' }],
+  ]) {
+    const request = (body) =>
+      runtime.dispatchFetch('https://chat.example.com/api/auth/2fa/' + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '192.0.2.19' },
+        body,
+      });
+    const before = calls;
+    assert.equal((await request('{}')).status, 400);
+    assert.equal(calls, before);
+    const bytes = ' \n' + JSON.stringify(shape, null, 2) + '\r\n';
+    const response = await request(bytes);
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), bytes);
+    assert.equal(calls, before + 1);
+  }
+});
+
 test('workerd validates JSON and forwards its original bytes to the origin service', async (t) => {
   const runtime = await runtimeGateway(origin);
   t.after(() => runtime.dispose());

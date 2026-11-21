@@ -34,3 +34,13 @@ The schema-v2 [YAML profile](../../profiles/librechat-v0.8.9.yaml) was deployed 
 Private evidence: separate `contracts-*.log`/result files on the trusted staging host, metadata-only origin proof, browser request field names/counts and synthetic messages. Credentials, TOTP secrets and raw auth bodies are not CI artifacts. The optional private-infrastructure workflow remains subject to the default-branch dispatcher limitation above; public PR CI covers the deterministic suites.
 
 Contract implementation `74d948b` passed [push CI](https://github.com/d4em0n/cf-auth-gateway/actions/runs/44697896128) and [PR CI](https://github.com/d4em0n/cf-auth-gateway/actions/runs/44697903214): 101 unit/HTTP/security tests, 10 workerd tests, formatting, lint, both profile formats and Wrangler dry-run. Later documentation-only commits are checked again on the PR.
+
+## Required-2FA POST contracts (2026-11-21)
+
+All five pre-authentication setup endpoints now have strict request contracts: setup/cancel require `tempToken`, confirm requires `tempToken` and `token`, acknowledgement requires `acknowledgementToken`, and finalization requires `finalizationToken`. All require JSON, cap bodies at 12288 bytes, reject extra fields and the same configured framework headers as the login challenge. Authentication, recognition, route allowlist and rate limits are unchanged; protected factor-management bodies are not inspected.
+
+**Confirmed by installed source and real LibreChat through local workerd:** a separate disposable application and MongoDB with enforced MFA completed setup/cancel and the full setup → TOTP confirmation → acknowledgement → finalization cycle. LibreChat rejected replayed finalization, subsequent MFA login worked, authenticated conversations were accessible, and malformed confirmation was stopped before origin. This verifies HTTP bodies and backend lifecycle; required-enrollment browser/native screen acceptance remains unverified. Normal staging and production authentication settings were not changed.
+
+The profile was deployed only to Cloudflare staging (code deployment `39ffabd2-f3ac-4e87-9d1f-72be408a86f4`). The automated suites now have 106 unit/HTTP/security tests and 11 workerd tests, including all five new endpoint contracts, malformed fields and unchanged-byte forwarding.
+
+The fixture MongoDB hit Docker's 1024-file soft limit during the first attempt to initialize a second QA database. Staging MongoDB was restored and recreated with a persistent QA-only `nofile=64000`; required-MFA testing moved to its own MongoDB/container/network. Production was unaffected. The Compose fixture now supports selecting a separate loopback port/subnet and documents that isolation.

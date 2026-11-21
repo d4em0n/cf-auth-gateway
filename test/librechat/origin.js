@@ -3,7 +3,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 
 /** Local TLS origin boundary. Logs metadata only, never cookies, tokens or bodies. */
-export async function startOrigin(directory, secret) {
+export async function startOrigin(directory, secret, { backendPort = 3096 } = {}) {
   const observations = [];
   const server = https.createServer(
     {
@@ -21,10 +21,16 @@ export async function startOrigin(directory, secret) {
         outgoing.writeHead(403).end();
         return;
       }
-      const headers = { ...incoming.headers, host: '127.0.0.1:3096' };
+      const headers = { ...incoming.headers, host: '127.0.0.1:' + backendPort };
       delete headers['x-cf-auth-gateway-secret'];
       const upstream = http.request(
-        { hostname: '127.0.0.1', port: 3096, path: incoming.url, method: incoming.method, headers },
+        {
+          hostname: '127.0.0.1',
+          port: backendPort,
+          path: incoming.url,
+          method: incoming.method,
+          headers,
+        },
         (response) => {
           entry.status = response.statusCode;
           outgoing.writeHead(response.statusCode, response.headers);
