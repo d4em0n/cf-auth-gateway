@@ -53,4 +53,24 @@ GATEWAY_QA_MFA_ACCOUNT=/private/qa/fresh-mfa-account.json \
 node test/librechat/mfa.js
 ```
 
-This deliberately enrolls MFA on that secondary account, verifies TOTP and backup-code login, rejects a used backup code and checks an extra field is stopped. It leaves that disposable account enrolled; rerunning requires another fresh account. It never changes global authentication configuration. Required-enrollment setup remains untested/uncontracted. The ordinary remote workflow needs only its normal disposable account and does not run this opt-in account mutation.
+This deliberately enrolls MFA on that secondary account, verifies TOTP and backup-code login, rejects a used backup code and checks an extra field is stopped. It leaves that disposable account enrolled; rerunning requires another fresh account. It never changes global authentication configuration. Required enrollment has its own isolated check below. The ordinary remote workflow needs only its normal disposable account and does not run this opt-in account mutation.
+
+## Required-enrollment POST contracts
+
+Use a **fresh** QA directory, separate Compose project/database, free subnet, and loopback port 3097. Never enable enforced MFA on the owner instance or normal staging simply to run this check. `prepare.py` creates independent secrets/data; edit only this new directory's `librechat.env` to add `ENFORCE_TWO_FACTOR_AUTHENTICATION=true` and set DOMAIN_CLIENT/DOMAIN_SERVER to `https://chat.example.com:19444`. Keep `MONGO_URI=mongodb://mongo:27017/gateway_qa` for that separate project's own MongoDB. Generate its QA TLS certificate as described above.
+
+```sh
+export GATEWAY_QA_DIR=/private/fresh-required-mfa
+export GATEWAY_QA_PORT=3097
+export GATEWAY_QA_SUBNET=10.190.87.0/24
+# Choose an unused subnet on your host.
+docker compose -p cf-auth-required-mfa-qa -f test/librechat/compose.yaml up -d
+docker compose -p cf-auth-required-mfa-qa -f test/librechat/compose.yaml cp test/librechat/seed.cjs api:/app/config/gateway-seed.cjs
+docker compose -p cf-auth-required-mfa-qa -f test/librechat/compose.yaml exec -T api node /app/config/gateway-seed.cjs < "$GATEWAY_QA_DIR/account.json"
+node test/librechat/required-mfa.js
+docker compose -p cf-auth-required-mfa-qa -f test/librechat/compose.yaml down
+```
+
+The runner starts the YAML-profile workerd gateway/TLS origin locally and targets only backend loopback port 3097. It tests cancellation and the full setup → TOTP confirmation → backup-code acknowledgement → finalization sequence, rejects replay, verifies subsequent MFA login/private access, and proves malformed input stops before origin. It leaves the disposable account enrolled; use another fresh account for another run. Logs/results contain status metadata, never tokens or TOTP secrets. It does not test the enrollment screens in a browser/native client or change public callback/SPA routes.
+
+The MongoDB fixture sets `nofile=64000`: LibreChat creates enough collections/indexes to exhaust Docker's 1024-file soft default, especially if multiple databases are created on one MongoDB. Keep required-MFA testing in its separate database/container; a WiredTiger open-file failure must not be worked around by changing production.

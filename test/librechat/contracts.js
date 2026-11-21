@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 // No valid credentials or user data are included in these rejection probes.
 export async function checkPublicContracts(request, results, query = '') {
   const probes = [
+    ...[
+      '/api/auth/2fa/setup',
+      '/api/auth/2fa/setup/confirm',
+      '/api/auth/2fa/setup/acknowledge',
+      '/api/auth/2fa/setup/finalize',
+      '/api/auth/2fa/setup/cancel',
+    ].map((path) => [path, '{}', { 'Content-Type': 'application/json' }, 400]),
     ['/api/auth/2fa/verify-temp', '{}', { 'Content-Type': 'application/json' }, 400],
     ['/api/auth/2fa/verify-temp', '{"tempToken":42}', { 'Content-Type': 'application/json' }, 400],
     [

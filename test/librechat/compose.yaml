@@ -4,7 +4,7 @@ services:
     image: ${LIBRECHAT_IMAGE:-librechat-workspace-librechat:0.1.0}
     user: '1000:1000'
     env_file: ${GATEWAY_QA_DIR:?}/librechat.env
-    ports: ['127.0.0.1:3096:3080']
+    ports: ['127.0.0.1:${GATEWAY_QA_PORT:-3096}:3080']
     volumes:
       - ${GATEWAY_QA_DIR}/librechat.env:/app/.env:ro
       - ${GATEWAY_QA_DIR}/librechat.yaml:/app/librechat.yaml:ro
@@ -21,6 +21,10 @@ services:
     security_opt: [no-new-privileges:true]
   mongo:
     image: mongo@sha256:098862b1339f031900ca66cf8fef799e616d6324fa41b9a263f2ec899552c1ef
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
     command: [mongod, --noauth, --wiredTigerCacheSizeGB, '0.25', --quiet]
     volumes:
       - ${GATEWAY_QA_DIR}/mongo-data:/data/db
@@ -30,7 +34,7 @@ services:
 networks:
   qa:
     ipam:
-      config: [{ subnet: 10.190.86.0/24 }]
+      config: [{ subnet: '${GATEWAY_QA_SUBNET:-10.190.86.0/24}' }]
   provider:
     external: true
     name: nginx-proxy-manager_default

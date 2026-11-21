@@ -41,7 +41,7 @@ For 400, compare allowed/required field names, primitive types, string lengths a
 ## Limits and bypass scenarios
 
 - This is a small flat-JSON contract, not JSON Schema, a WAF, a semantic sanitizer or proof that the backend is safe. Valid strings can still exploit backend bugs. Header denial covers only explicitly named headers.
-- Routes without contracts are unchanged. Required-MFA setup routes remain uncontracted in this version because that configuration is not enabled/verified. An earlier overlapping public rule without a contract wins; audit ordered rules and avoid alternate public paths to the same handler.
+- Routes without contracts are unchanged. An earlier overlapping public rule without a contract wins; audit ordered rules and avoid alternate public paths to the same handler.
 - Protected callers can submit any body accepted by the original backend. A recognized but expired credential can still reach it by the agreed design. Authentication and authorization must remain enforced there.
 - Query parameters, cookies, redirects, protocol framing and backend interpretation of duplicated HTTP headers are outside body contracts. Existing method-override and path rules remain in effect. Upstream proxies must not rewrite a public route into a different protected handler or decode ambiguous paths differently.
 - Direct-origin access bypasses all Worker contracts; the independent origin secret and closed application port remain mandatory. Encoded/noncanonical paths retain the existing protected policy, not a new public exception.

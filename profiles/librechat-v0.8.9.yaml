@@ -65,11 +65,94 @@ routes:
       - POST
     exact:
       - /api/auth/2fa/setup
-      - /api/auth/2fa/setup/confirm
-      - /api/auth/2fa/setup/acknowledge
-      - /api/auth/2fa/setup/finalize
       - /api/auth/2fa/setup/cancel
     rateLimit: true
+    request:
+      contentTypes:
+        - application/json
+      maxBodyBytes: 12288
+      denyHeaders:
+        - Next-Action
+        - X-Middleware-Subrequest
+      json:
+        type: object
+        required:
+          - tempToken
+        additionalProperties: false
+        properties:
+          tempToken:
+            type: string
+            maxLength: 8192
+  - access: auth_flow
+    methods:
+      - POST
+    exact:
+      - /api/auth/2fa/setup/confirm
+    rateLimit: true
+    request:
+      contentTypes:
+        - application/json
+      maxBodyBytes: 12288
+      denyHeaders:
+        - Next-Action
+        - X-Middleware-Subrequest
+      json:
+        type: object
+        required:
+          - tempToken
+          - token
+        additionalProperties: false
+        properties:
+          tempToken:
+            type: string
+            maxLength: 8192
+          token:
+            type: string
+            maxLength: 32
+  - access: auth_flow
+    methods:
+      - POST
+    exact:
+      - /api/auth/2fa/setup/acknowledge
+    rateLimit: true
+    request:
+      contentTypes:
+        - application/json
+      maxBodyBytes: 12288
+      denyHeaders:
+        - Next-Action
+        - X-Middleware-Subrequest
+      json:
+        type: object
+        required:
+          - acknowledgementToken
+        additionalProperties: false
+        properties:
+          acknowledgementToken:
+            type: string
+            maxLength: 8192
+  - access: auth_flow
+    methods:
+      - POST
+    exact:
+      - /api/auth/2fa/setup/finalize
+    rateLimit: true
+    request:
+      contentTypes:
+        - application/json
+      maxBodyBytes: 12288
+      denyHeaders:
+        - Next-Action
+        - X-Middleware-Subrequest
+      json:
+        type: object
+        required:
+          - finalizationToken
+        additionalProperties: false
+        properties:
+          finalizationToken:
+            type: string
+            maxLength: 8192
   - access: auth_flow
     methods:
       - POST
